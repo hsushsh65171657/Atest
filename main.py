@@ -9,7 +9,7 @@ with sync_playwright() as p:
     # نسوي session ثابتة ونحفظ الجلسة داخل ig_session
     context = p.chromium.launch_persistent_context(
         user_data_dir="ig_session",
-        headless=true
+        headless=True
     )
     page = context.pages[0]
 
