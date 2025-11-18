@@ -18,12 +18,29 @@ def collect_all_set_cookie_lines(responses):
 
 def login(user, password):
     s = requests.Session()
-    data = {"params": "{\"client_input_params\":{\"contact_point\":\"" + user + "\",\"password\":\"#PWD_INSTAGRAM:0:0:" +  password + "\",\"fb_ig_device_id\":[],\"event_flow\":\"login_manual\",\"openid_tokens\":{},\"machine_id\":\"ZG93WAABAAEkJZWHLdW_Dm4nIE9C\",\"family_device_id\":\"\",\"accounts_list\":[],\"try_num\":1,\"login_attempt_count\":1,\"device_id\":\"android-" + rd + "\",\"auth_secure_device_id\":\"\",\"device_emails\":[],\"secure_family_device_id\":\"\",\"event_step\":\"home_page\"},\"server_params\":{\"is_platform_login\":0,\"qe_device_id\":\"\",\"family_device_id\":\"\",\"credential_type\":\"password\",\"waterfall_id\":\"" + modified_uuid_str + "\",\"username_text_input_id\":\"9cze54:46\",\"password_text_input_id\":\"9cze54:47\",\"offline_experiment_group\":\"caa_launch_ig4a_combined_60_percent\",\"INTERNAL__latency_qpl_instance_id\":56600226400306,\"INTERNAL_INFRA_THEME\":\"default\",\"device_id\":\"android-" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)) + "\",\"server_login_source\":\"login\",\"login_source\":\"Login\",\"should_trigger_override_login_success_action\":0,\"ar_event_source\":\"login_home_page\",\"INTERNAL__latency_qpl_marker_id\":36707139}}"}
-    data["params"] = data["params"].replace("\"family_device_id\":\"\"", "\"family_device_id\":\"" + my_uuid_str + "\"")
-    data["params"] = data["params"].replace("\"qe_device_id\":\"\"", "\"qe_device_id\":\"" + my_uuid_str + "\"")
 
+    data = {
+        "params": "{\"client_input_params\":{\"contact_point\":\"" + user + "\",\"password\":\"#PWD_INSTAGRAM:0:0:" + password +
+                  "\",\"fb_ig_device_id\":[],\"event_flow\":\"login_manual\",\"openid_tokens\":{},"
+                  "\"machine_id\":\"ZG93WAABAAEkJZWHLdW_Dm4nIE9C\",\"family_device_id\":\"\","
+                  "\"accounts_list\":[],\"try_num\":1,\"login_attempt_count\":1,\"device_id\":\"android-" +
+                  rd + "\",\"auth_secure_device_id\":\"\",\"device_emails\":[],\"secure_family_device_id\":\"\",\"event_step\":\"home_page\"},"
+                  "\"server_params\":{\"is_platform_login\":0,\"qe_device_id\":\"\",\"family_device_id\":\"\","
+                  "\"credential_type\":\"password\",\"waterfall_id\":\"" + modified_uuid_str +
+                  "\",\"username_text_input_id\":\"9cze54:46\",\"password_text_input_id\":\"9cze54:47\","
+                  "\"offline_experiment_group\":\"caa_launch_ig4a_combined_60_percent\","
+                  "\"INTERNAL__latency_qpl_instance_id\":56600226400306,\"INTERNAL_INFRA_THEME\":\"default\","
+                  "\"device_id\":\"android-" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)) +
+                  "\",\"server_login_source\":\"login\",\"login_source\":\"Login\",\"should_trigger_override_login_success_action\":0,"
+                  "\"ar_event_source\":\"login_home_page\",\"INTERNAL__latency_qpl_marker_id\":36707139}}"
+    }
+
+    # أهم شي — هذول الهيدرّات كانوا ناقصين
     headers = {
         "Host": "i.instagram.com",
+        "X-FB-HTTP-Engine": "Liger",
+        "X-FB-Client-IP": "True",
+        "X-FB-Server-Cluster": "True",
         "X-Ig-App-Locale": "ar_SA",
         "X-Ig-Device-Locale": "ar_SA",
         "X-Ig-Mapped-Locale": "ar_AR",
@@ -44,62 +61,55 @@ def login(user, password):
         "X-Ig-Capabilities": "3brTv10=",
         "X-Ig-App-Id": "567067343352427",
         "Priority": "u=3",
-        "User-Agent": f"Instagram 303.0.0.0.59 Android (28/9; 320dpi; 900x1600; {''.join(random.choices(string.ascii_lowercase + string.digits, k=16))}/{''.join(random.choices(string.ascii_lowercase + string.digits, k=16))}; en_GB;)",
+        "User-Agent": f"Instagram 303.0.0.0.59 Android (28/9; 320dpi; 900x1600; en_GB;)",
         "Accept-Language": "ar-SA, en-US",
-        "Ig-Intended-User-Id": "0",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Accept-Encoding": "gzip, deflate",
     }
 
-    # POST login فقط بدون أي GET
     response = s.post(
-        'https://i.instagram.com/api/v1/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/',
-        headers=headers, data=data, allow_redirects=False, timeout=20
+        "https://i.instagram.com/api/v1/bloks/apps/com.bloks.www.bloks.caa.login.async.send_login_request/",
+        headers=headers,
+        data=data,
+        timeout=20,
+        allow_redirects=False
     )
+
     body = response.text
 
     if "Bearer" not in body:
         print("[ ! ] Login failed or challenge")
+        print("Response:", body[:200])
         return
 
-    # استخراج sessionid من الـ Bearer
-    sessionid_from_full = None
+    # استخراج sessionid
+    sessionid = None
     try:
-        session_b64 = re.search(r'Bearer IGT:2:(.*?),', body).group(1).strip()
-        session_b64 = session_b64[:-8]
-        full = base64.b64decode(session_b64).decode('utf-8')
-        m = re.search(r'"sessionid":"(.*?)"', full)
-        if m:
-            sessionid_from_full = m.group(1).strip()
+        enc = re.search(r"Bearer IGT:2:(.*?),", body).group(1)[:-8]
+        dec = base64.b64decode(enc).decode()
+        sessionid = re.search(r'"sessionid":"(.*?)"', dec).group(1)
     except:
         pass
 
-    # جمع كل الكوكيز من استجابة POST فقط
-    responses_to_check = [response]
     cookie_map = {}
 
-    for line in collect_all_set_cookie_lines(responses_to_check):
-        if '=' in line:
-            name, val = line.split('=', 1)
-            cookie_map[name] = val
+    for line in collect_all_set_cookie_lines([response]):
+        name, val = line.split("=", 1)
+        cookie_map[name] = val
 
-    for k, v in s.cookies.items():
-        cookie_map.setdefault(k, v)
+    if sessionid:
+        cookie_map["sessionid"] = sessionid
 
-    if sessionid_from_full:
-        cookie_map["sessionid"] = sessionid_from_full
+    ordered = ['csrftoken', 'rur', 'mid', 'ds_user_id', 'sessionid']
+    out = "; ".join([f"{k}={cookie_map[k]}" for k in ordered if k in cookie_map]) + ";"
 
-    # ترتيب الكوكيز
-    ordered_keys = ['csrftoken', 'rur', 'mid', 'ds_user_id', 'sessionid']
-    cookie_items = [f"{k}={cookie_map[k]}" for k in ordered_keys if k in cookie_map]
-    cookie_string = "; ".join(cookie_items) + ";"
-
-    # طباعة النتائج
     print(f"[ + ] Logged in with @{user}")
     print("\n[ + ] FINAL COOKIE STRING:")
-    print(cookie_string)
+    print(out)
+
     print("\n[ + ] User-Agent:")
-    print(headers['User-Agent'])
+    print(headers["User-Agent"])
+
 
 if __name__ == "__main__":
     USER = input("[ + ] Username : ")
